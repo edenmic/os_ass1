@@ -10,5 +10,7 @@ main(void)
 {
   if(fork() > 0)
     sleep(5);  // Let child exit before parent.
-  exit(0);
+  exit(0, "zombie\n");
+  // Parent should not get here.
+  return 0; // never reached
 }

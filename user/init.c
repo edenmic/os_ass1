@@ -28,24 +28,26 @@ main(void)
     pid = fork();
     if(pid < 0){
       printf("init: fork failed\n");
-      exit(1);
+       exit(0, "init: fork failed");
     }
     if(pid == 0){
       exec("sh", argv);
       printf("init: exec sh failed\n");
-      exit(1);
+       exit(0, "init: fork failed");
     }
 
     for(;;){
       // this call to wait() returns if the shell exits,
       // or if a parentless process exits.
-      wpid = wait((int *) 0);
+      int dummy;
+      char msg[32];
+      wpid = wait(&dummy, msg);
       if(wpid == pid){
         // the shell exited; restart it.
         break;
       } else if(wpid < 0){
         printf("init: wait returned an error\n");
-        exit(1);
+         exit(0, "init: fork failed");
       } else {
         // it was a parentless process; do nothing.
       }

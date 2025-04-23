@@ -54,7 +54,7 @@ usertrap(void)
     // system call
 
     if(killed(p))
-      exit(-1);
+      exit(0, "trap error");
 
     // sepc points to the ecall instruction,
     // but we want to return to the next instruction.
@@ -74,7 +74,7 @@ usertrap(void)
   }
 
   if(killed(p))
-    exit(-1);
+    exit(0, "trap error");
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)

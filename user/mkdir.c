@@ -9,7 +9,7 @@ main(int argc, char *argv[])
 
   if(argc < 2){
     fprintf(2, "Usage: mkdir files...\n");
-    exit(1);
+    exit(0,"mkdir: error 1");
   }
 
   for(i = 1; i < argc; i++){
@@ -19,5 +19,6 @@ main(int argc, char *argv[])
     }
   }
 
-  exit(0);
+  exit(0,"");
+  return 0;
 }

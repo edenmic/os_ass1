@@ -344,7 +344,7 @@ reparent(struct proc *p)
 // An exited process remains in the zombie state
 // until its parent calls wait().
 void
-exit(int status)
+exit(int status, char *msg)
 {
   struct proc *p = myproc();
 
@@ -375,8 +375,17 @@ exit(int status)
   
   acquire(&p->lock);
 
-  p->xstate = status;
-  p->state = ZOMBIE;
+  // Save the exit message in the PCB (Process Control Block)
+  if (msg) {
+    strncpy(p->exit_msg, msg, sizeof(p->exit_msg));
+    p->exit_msg[sizeof(p->exit_msg) - 1] = '\0'; // ensure null-termination
+    } else {
+      p->exit_msg[0] = '\0';
+    }
+    // Set a dummy exit status (you can keep 0 or set a fixed one)
+    
+  p->xstate = status; //Save the actual exit status from the syscall argument
+  p->state = ZOMBIE;  // Mark the process as zombie
 
   release(&wait_lock);
 
@@ -388,7 +397,7 @@ exit(int status)
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
-wait(uint64 addr)
+wait(uint64 addr, uint64 msgaddr)
 {
   struct proc *pp;
   int havekids, pid;
@@ -414,9 +423,17 @@ wait(uint64 addr)
             release(&wait_lock);
             return -1;
           }
-          freeproc(pp);
+          // Copy the exit message BEFORE freeproc!
+          if (msgaddr != 0 && copyout(p->pagetable, msgaddr, pp->exit_msg, sizeof(pp->exit_msg)) < 0) {
+            release(&pp->lock);
+            release(&wait_lock);
+            return -1;
+          }
+          
+          freeproc(pp); // After copying everything!
           release(&pp->lock);
           release(&wait_lock);
+          //copyout(p->parent->pagetable, msgaddr, p->exit_msg, sizeof(p->exit_msg)); //added for Q3
           return pid;
         }
         release(&pp->lock);

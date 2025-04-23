@@ -7,12 +7,29 @@
 #include "proc.h"
 
 uint64
+// sys_exit(void)
+// {
+//   char msg[32];
+//   if (argstr(0, msg, 32) < 0) //32 is int max
+//     return -1;
+//   exit(msg);
+//   return 0;  // not reached
+// }
 sys_exit(void)
 {
-  int n;
-  argint(0, &n);
-  exit(n);
-  return 0;  // not reached
+  int status;
+  char msg[32];
+
+  argint(0, &status);
+
+  if (argstr(1, msg, 32) < 0)
+    return -1;
+
+  struct proc *p = myproc();
+  safestrcpy(p->exit_msg, msg, 32);  // This must happen before calling exit()
+
+  exit(status, msg);  // This will mark the process as ZOMBIE
+  return 0;      // Never reached
 }
 
 uint64
@@ -30,9 +47,19 @@ sys_fork(void)
 uint64
 sys_wait(void)
 {
-  uint64 p;
-  argaddr(0, &p);
-  return wait(p);
+  //uint64 p;
+  //argaddr(0, &p);
+  //return wait(p);
+  uint64 addr;     // address to pass xstate
+  uint64 msgaddr;  // address to pass exit message
+
+  //if (argaddr(0, &addr) < 0 || argaddr(1, &msgaddr) < 0)
+  //  return -1;
+  //return wait(addr, msgaddr);
+  argaddr(0, &addr);
+  argaddr(1, &msgaddr);
+
+  return wait(addr, msgaddr);
 }
 
 uint64
@@ -88,4 +115,13 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+//Explanation:
+//myproc() gets the current process.
+//.sz is the size of the process memory in bytes.//
+uint64
+sys_memsize(void)
+{
+  return myproc()->sz;
 }
