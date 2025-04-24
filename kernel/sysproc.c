@@ -5,8 +5,10 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
-
-
+#include "syscall.h"
+#ifndef NULL
+#define NULL ((void *)0)
+#endif
 uint64
 // sys_exit(void)
 // {
@@ -198,11 +200,172 @@ sys_memsize(void)
 // }
 
 
+uint64
+sys_forkn(void)
+{
+  printf("starting forkn()\n");
+  int n;
+  uint64 pids_addr;  // user-space pointer to array of pids
+
+  argint(0, &n);
+  argaddr(1, &pids_addr);
+
+  if(n < 1 || n > 16)
+    return -1;
+  printf("line 213\n");
+
+  struct proc *p = myproc();
+  struct proc *children[16];  // array of child process pointers
+  int created = 0;
+  printf("line 218\n");
+
+  // Allocate n children
+  for(int i = 0; i < n; i++){
+    printf("im in the for loop, i = %d \n", i);
+    struct proc *np;
+    printf("line 224\n");
+    if ((np = allocproc()) == 0) {
+        printf("allocproc failed at i = %d\n", i);
+        // Clean up already created children
+        for (int j = 0; j < created; j++) {
+            if (children[j] != NULL) {
+                printf("Cleaning up child %d\n", children[j]->pid);
+                printf("Before acquiring lock for child %d\n", j);
+                acquire(&children[j]->lock);
+                printf("Acquired lock for child %d\n", j);
+                children[j]->state = UNUSED;
+                release(&children[j]->lock);
+            }
+        }
+        return -1;
+    }
+
+    // Copy parent user memory to child
+    if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
+      freeproc(np);
+      release(&np->lock);
+      for (int j = 0; j < created; j++) {
+        acquire(&children[j]->lock);
+        children[j]->state = UNUSED;
+        release(&children[j]->lock);
+      }
+      return -1;
+    }
+
+    np->sz = p->sz;
+    *(np->trapframe) = *(p->trapframe);
+    np->trapframe->a0 = i + 1;  // child's return value is its index (1-based)
+
+    for(int fd = 0; fd < NOFILE; fd++){
+      if(p->ofile[fd])
+        np->ofile[fd] = filedup(p->ofile[fd]);
+    }
+    np->cwd = idup(p->cwd);
+    safestrcpy(np->name, p->name, sizeof(p->name));
+    //pid = np->pid;
+
+    release(&np->lock); //
+
+
+    acquire(&wait_lock);
+    np->parent = p;
+    release(&wait_lock);
+
+    children[created++] = np;  // save the child in the array
+  }
+
+  // All children created successfully, set them RUNNABLE
+  for(int i = 0; i < created; i++){
+    acquire(&children[i]->lock);
+    children[i]->state = RUNNABLE;
+    release(&children[i]->lock);
+  }
+
+  // Prepare PIDs array to copy back to userspace
+  int pid_array[16];
+  for(int i = 0; i < n; i++){
+    pid_array[i] = children[i]->pid;
+  }
+
+  // Copy PIDs to user space
+  if(copyout(p->pagetable, pids_addr, (char *)pid_array, n * sizeof(int)) < 0){
+    // If copyout fails, we still already made the children RUNNABLE. Can't clean them.
+    return -1;
+  }
+
+  return 0;  // parent returns 0
+}
+
 
 uint64
 sys_waitall(void)
 {
-  // Not implemented yet — just return -1 for now!
-  return -1;
+    uint64 n_addr, statuses_addr;
+    argaddr(0, &n_addr);
+    argaddr(1, &statuses_addr);
+
+    struct proc *p = myproc();
+    int statuses[NPROC];  // Array to store exit statuses of child processes
+    int count = 0;        // Number of child processes that have exited
+
+    acquire(&wait_lock);
+
+    for (;;) {
+        int havekids = 0;
+        int found = 0;
+
+        // Iterate over all processes in the process table
+        for (struct proc *pp = proc; pp < &proc[NPROC]; pp++) {
+          printf("Checking process pp = %d\n", pp);
+          printf("Process %d, parent: %d, state: %d\n", pp->pid, pp->parent ? pp->parent->pid : -1, pp->state);
+            if (pp->parent == p) {
+                acquire(&pp->lock);
+                havekids = 1;
+
+                if (pp->state == ZOMBIE) {
+                    // Found a child process in the ZOMBIE state
+                    printf("Found ZOMBIE process %d\n", pp->pid);
+                    statuses[count++] = pp->xstate;  // Collect its exit status
+                    freeproc(pp);                   // Free the process
+                    release(&pp->lock);
+                    found = 1;
+                } else {
+                    release(&pp->lock);
+                }
+            }
+        }
+
+        if (!havekids) {
+            // No children exist
+            release(&wait_lock);
+
+            // Copy the number of exited children to user space
+            if (copyout(p->pagetable, n_addr, (char *)&count, sizeof(int)) < 0)
+                return -1;
+
+            // Copy the statuses array to user space
+            if (copyout(p->pagetable, statuses_addr, (char *)statuses, count * sizeof(int)) < 0)
+                return -1;
+
+            return 0;
+        }
+
+        if (!found) {
+            // No ZOMBIE children found, wait for a child to exit
+            sleep(p, &wait_lock);
+        }
+    }
+
+    release(&wait_lock);
+
+    // Copy the number of exited children to user space
+    if (copyout(p->pagetable, n_addr, (char *)&count, sizeof(int)) < 0)
+        return -1;
+
+    // Copy the statuses array to user space
+    if (copyout(p->pagetable, statuses_addr, (char *)statuses, count * sizeof(int)) < 0)
+        return -1;
+
+    return 0;
 }
 

@@ -28,6 +28,7 @@ struct cpu {
 
 extern struct cpu cpus[NCPU];
 
+
 // per-process data for the trap handling code in trampoline.S.
 // sits in a page by itself just under the trampoline page in the
 // user page table. not specially mapped in the kernel page table.
@@ -110,3 +111,5 @@ struct proc {
 
 struct proc *allocproc(void);
 void freeproc(struct proc *);
+extern struct spinlock wait_lock;
+extern struct proc proc[NPROC];

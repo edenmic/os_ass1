@@ -24,7 +24,7 @@ extern char trampoline[]; // trampoline.S
 // parents are not lost. helps obey the
 // memory model when using p->parent.
 // must be acquired before any p->lock.
-struct spinlock wait_lock;
+struct spinlock wait_lock; //added to proc.h as extern
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
