@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 
+
 uint64
 // sys_exit(void)
 // {
@@ -125,3 +126,83 @@ sys_memsize(void)
 {
   return myproc()->sz;
 }
+
+// uint64
+// sys_forkn(int n)
+// {
+//   uint64 pids_addr;
+
+//   argint(0, &n);                      // First argument: number of children
+//   argaddr(1, &pids_addr);             // Second argument: pointer to PID array
+
+//   if (n < 1 || n > 16)
+//     return -1;
+
+//   struct proc *p = myproc();
+//   struct proc *children[16];          // Store pointers to created children
+//   int pids[16];
+//   int created = 0;
+
+//   // First phase: try to allocate all children
+//   for (int i = 0; i < n; i++) {
+//     struct proc *np = allocproc();
+//     if (np == 0) {
+//       // Cleanup already allocated children if any failure
+//       for (int j = 0; j < created; j++) {
+//         acquire(&children[j]->lock);
+//         children[j]->killed = 1;
+//         children[j]->state = ZOMBIE;
+//         release(&children[j]->lock);
+//       }
+//       return -1;
+//     }
+
+//     // Copy parent's state into child
+//     np->parent = p;
+//     np->trapframe = kalloc();
+//     if (np->trapframe == 0) {
+//       freeproc(np);
+//       return -1;
+//     }
+//     *(np->trapframe) = *(p->trapframe);
+
+//     np->pagetable = proc_pagetable(np);
+//     if (np->pagetable == 0) {
+//       freeproc(np);
+//       return -1;
+//     }
+
+//     safestrcpy(np->name, p->name, sizeof(p->name));
+
+//     // Store the child pointer and PID for later
+//     children[created] = np;
+//     pids[created] = np->pid;
+//     created++;
+//   }
+
+//   // Copy child PIDs to userspace (in the parent process)
+//   if (copyout(p->pagetable, pids_addr, (char *)pids, n * sizeof(int)) < 0)
+//     return -1;
+
+//   // ✅ Phase 2: Release all children (after all succeeded)
+//   for (int i = 0; i < created; i++) {
+//     if (children[i] != myproc()) {                  // ✅ Add this check!
+//       acquire(&children[i]->lock);
+//       children[i]->childnum = i + 1;
+//       children[i]->state = RUNNABLE;
+//       release(&children[i]->lock);
+//     }
+//   }
+
+//   return 0;  // Parent returns 0
+// }
+
+
+
+uint64
+sys_waitall(void)
+{
+  // Not implemented yet — just return -1 for now!
+  return -1;
+}
+

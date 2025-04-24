@@ -92,6 +92,7 @@ struct proc {
   int xstate;                  // Exit status to be returned to parent's wait
   char exit_msg[32];           //added for Q3
   int pid;                     // Process ID
+  int childnum;                //added for Q4  
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
@@ -106,3 +107,6 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 };
+
+struct proc *allocproc(void);
+void freeproc(struct proc *);
