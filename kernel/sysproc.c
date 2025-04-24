@@ -316,8 +316,8 @@ sys_waitall(void)
 
         // Iterate over all processes in the process table
         for (struct proc *pp = proc; pp < &proc[NPROC]; pp++) {
-          printf("Checking process pp = %d\n", pp);
-          printf("Process %d, parent: %d, state: %d\n", pp->pid, pp->parent ? pp->parent->pid : -1, pp->state);
+          //printf("Checking process pp = %d\n", pp);
+          //printf("Process %d, parent: %d, state: %d\n", pp->pid, pp->parent ? pp->parent->pid : -1, pp->state);
             if (pp->parent == p) {
                 acquire(&pp->lock);
                 havekids = 1;
@@ -337,21 +337,27 @@ sys_waitall(void)
 
         if (!havekids) {
             // No children exist
+            printf("DEBUG: No children exist for process %d\n", p->pid);
             release(&wait_lock);
 
             // Copy the number of exited children to user space
-            if (copyout(p->pagetable, n_addr, (char *)&count, sizeof(int)) < 0)
+            if (copyout(p->pagetable, n_addr, (char *)&count, sizeof(int)) < 0) {
+                printf("DEBUG: Failed to copy count to user space\n");
                 return -1;
+            }
 
             // Copy the statuses array to user space
-            if (copyout(p->pagetable, statuses_addr, (char *)statuses, count * sizeof(int)) < 0)
+            if (copyout(p->pagetable, statuses_addr, (char *)statuses, count * sizeof(int)) < 0) {
+                printf("DEBUG: Failed to copy statuses to user space\n");
                 return -1;
+            }
 
             return 0;
         }
 
         if (!found) {
             // No ZOMBIE children found, wait for a child to exit
+            printf("DEBUG: No ZOMBIE children found, sleeping process %d\n", p->pid);
             sleep(p, &wait_lock);
         }
     }
@@ -359,12 +365,16 @@ sys_waitall(void)
     release(&wait_lock);
 
     // Copy the number of exited children to user space
-    if (copyout(p->pagetable, n_addr, (char *)&count, sizeof(int)) < 0)
+    if (copyout(p->pagetable, n_addr, (char *)&count, sizeof(int)) < 0) {
+        printf("DEBUG: Failed to copy count to user space\n");
         return -1;
+    }
 
     // Copy the statuses array to user space
-    if (copyout(p->pagetable, statuses_addr, (char *)statuses, count * sizeof(int)) < 0)
+    if (copyout(p->pagetable, statuses_addr, (char *)statuses, count * sizeof(int)) < 0) {
+        printf("DEBUG: Failed to copy statuses to user space\n");
         return -1;
+    }
 
     return 0;
 }
