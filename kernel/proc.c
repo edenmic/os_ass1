@@ -347,13 +347,14 @@ void
 exit(int status, char *msg)
 {
   struct proc *p = myproc();
+  char kernel_msg[32];  // Temporary buffer in kernelspace
 
-  if(p == initproc)
+  if (p == initproc)
     panic("init exiting");
 
-  // Close all open files.
-  for(int fd = 0; fd < NOFILE; fd++){
-    if(p->ofile[fd]){
+  // Close all open files
+  for (int fd = 0; fd < NOFILE; fd++) {
+    if (p->ofile[fd]) {
       struct file *f = p->ofile[fd];
       fileclose(f);
       p->ofile[fd] = 0;
@@ -367,29 +368,30 @@ exit(int status, char *msg)
 
   acquire(&wait_lock);
 
-  // Give any children to init.
+  // Give any children to init
   reparent(p);
 
-  // Parent might be sleeping in wait().
+  // Parent might be sleeping in wait()
   wakeup(p->parent);
-  
+
   acquire(&p->lock);
 
-  // Save the exit message in the PCB (Process Control Block)
-  if (msg) {
-    strncpy(p->exit_msg, msg, sizeof(p->exit_msg));
-    p->exit_msg[sizeof(p->exit_msg) - 1] = '\0'; // ensure null-termination
-    } else {
-      p->exit_msg[0] = '\0';
-    }
-    // Set a dummy exit status (you can keep 0 or set a fixed one)
-    
-  p->xstate = status; //Save the actual exit status from the syscall argument
+    // Use argstr to copy the exit message from userspace to kernelspace
+  if (msg && argstr(1, kernel_msg, sizeof(kernel_msg)) >= 0) {
+    strncpy(p->exit_msg, kernel_msg, sizeof(p->exit_msg));
+    p->exit_msg[sizeof(p->exit_msg) - 1] = '\0'; // Ensure null-termination
+ 
+
+  } else {
+    p->exit_msg[0] = '\0'; // Empty message if none provided
+  }
+
+  p->xstate = status; // Save the exit status
   p->state = ZOMBIE;  // Mark the process as zombie
 
   release(&wait_lock);
 
-  // Jump into the scheduler, never to return.
+  // Jump into the scheduler, never to return
   sched();
   panic("zombie exit");
 }
