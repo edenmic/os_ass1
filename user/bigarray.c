@@ -17,7 +17,7 @@ main(void)
     int pids[NPROC];
     int n = NPROC;
     int statuses[NPROC];
-    uint sum_of_sums = 0;  // Use unsigned int to avoid overflow
+    int sum_of_sums = 0;  // Use unsigned int to avoid overflow
 
     // Initialize the array with values 0 to ARRAY_SIZE - 1
     for (int i = 0; i < ARRAY_SIZE; i++) {
@@ -33,10 +33,12 @@ main(void)
 
     // Child processes
     for (int i = 0; i < n; i++) {
-        if (pids[i] == 0) {  // Child process
+        //if (pids[i] == 0) {  // Child process
+        if (getpid() == i+4) {  // Child process
             int start = (ARRAY_SIZE / n) * i;
             int end = (ARRAY_SIZE / n) * (i + 1);
-            uint sum = 0;  // Use unsigned int to avoid overflow
+            printf("Child %d (PID %d): processing start=%d to end=%d\n", i + 1, getpid(), start, end - 1);
+            int sum = 0;  // Use unsigned int to avoid overflow
 
             // Calculate the sum of the assigned quarter
             for (int j = start; j < end; j++) {
@@ -57,7 +59,6 @@ main(void)
 
     // Wait for all child processes to finish using waitall
 printf("before waitall, n = %d\n", n);
-printf("before waitall, n = %d\n", n);
     if (waitall(&n, statuses) < 0) {
         printf("waitall failed\n");
         free(array);  // Free allocated memory before exiting
@@ -70,7 +71,7 @@ printf("before waitall, n = %d\n", n);
     for (int i = 0; i < n; i++) {
         printf("DEBUG: statuses[%d] = %d\n", i, statuses[i]);
 
-        uint sum = (uint)statuses[i];  // Cast to unsigned int   
+        int sum = statuses[i];  // Cast to unsigned int   
         printf("DEBUG: sum = %d\n", sum);  // Use %d
         printf("Child %d returned sum = %d\n", i + 1, sum);  // Use %d
         sum_of_sums += sum;
