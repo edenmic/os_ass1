@@ -10,14 +10,6 @@
 #define NULL ((void *)0)
 #endif
 uint64
-// sys_exit(void)
-// {
-//   char msg[32];
-//   if (argstr(0, msg, 32) < 0) //32 is int max
-//     return -1;
-//   exit(msg);
-//   return 0;  // not reached
-// }
 sys_exit(void)
 {
   int status;
@@ -129,77 +121,6 @@ sys_memsize(void)
   return myproc()->sz;
 }
 
-// uint64
-// sys_forkn(int n)
-// {
-//   uint64 pids_addr;
-
-//   argint(0, &n);                      // First argument: number of children
-//   argaddr(1, &pids_addr);             // Second argument: pointer to PID array
-
-//   if (n < 1 || n > 16)
-//     return -1;
-
-//   struct proc *p = myproc();
-//   struct proc *children[16];          // Store pointers to created children
-//   int pids[16];
-//   int created = 0;
-
-//   // First phase: try to allocate all children
-//   for (int i = 0; i < n; i++) {
-//     struct proc *np = allocproc();
-//     if (np == 0) {
-//       // Cleanup already allocated children if any failure
-//       for (int j = 0; j < created; j++) {
-//         acquire(&children[j]->lock);
-//         children[j]->killed = 1;
-//         children[j]->state = ZOMBIE;
-//         release(&children[j]->lock);
-//       }
-//       return -1;
-//     }
-
-//     // Copy parent's state into child
-//     np->parent = p;
-//     np->trapframe = kalloc();
-//     if (np->trapframe == 0) {
-//       freeproc(np);
-//       return -1;
-//     }
-//     *(np->trapframe) = *(p->trapframe);
-
-//     np->pagetable = proc_pagetable(np);
-//     if (np->pagetable == 0) {
-//       freeproc(np);
-//       return -1;
-//     }
-
-//     safestrcpy(np->name, p->name, sizeof(p->name));
-
-//     // Store the child pointer and PID for later
-//     children[created] = np;
-//     pids[created] = np->pid;
-//     created++;
-//   }
-
-//   // Copy child PIDs to userspace (in the parent process)
-//   if (copyout(p->pagetable, pids_addr, (char *)pids, n * sizeof(int)) < 0)
-//     return -1;
-
-//   // ✅ Phase 2: Release all children (after all succeeded)
-//   for (int i = 0; i < created; i++) {
-//     if (children[i] != myproc()) {                  // ✅ Add this check!
-//       acquire(&children[i]->lock);
-//       children[i]->childnum = i + 1;
-//       children[i]->state = RUNNABLE;
-//       release(&children[i]->lock);
-//     }
-//   }
-
-//   return 0;  // Parent returns 0
-// }
-
-
 uint64
 sys_forkn(void)
 {
@@ -212,27 +133,24 @@ sys_forkn(void)
 
   if(n < 1 || n > 16)
     return -1;
-  printf("line 213\n");
 
   struct proc *p = myproc();
   struct proc *children[16];  // array of child process pointers
   int created = 0;
-  printf("line 218\n");
 
   // Allocate n children
   for(int i = 0; i < n; i++){
-    printf("im in the for loop, i = %d \n", i);
+    //printf("im in the for loop, i = %d \n", i);
     struct proc *np;
-    printf("line 224\n");
     if ((np = allocproc()) == 0) {
         printf("allocproc failed at i = %d\n", i);
         // Clean up already created children
         for (int j = 0; j < created; j++) {
             if (children[j] != NULL) {
-                printf("Cleaning up child %d\n", children[j]->pid);
-                printf("Before acquiring lock for child %d\n", j);
+                //printf("Cleaning up child %d\n", children[j]->pid);
+                //printf("Before acquiring lock for child %d\n", j);
                 acquire(&children[j]->lock);
-                printf("Acquired lock for child %d\n", j);
+                //printf("Acquired lock for child %d\n", j);
                 children[j]->state = UNUSED;
                 release(&children[j]->lock);
             }
@@ -324,7 +242,7 @@ sys_waitall(void)
 
                 if (pp->state == ZOMBIE) {
                     // Found a child process in the ZOMBIE state
-                    printf("Found ZOMBIE process %d\n", pp->pid);
+                    //printf("Found ZOMBIE process %d\n", pp->pid);
                     statuses[count++] = pp->xstate;  // Collect its exit status
                     freeproc(pp);                   // Free the process
                     release(&pp->lock);
@@ -337,18 +255,18 @@ sys_waitall(void)
 
         if (!havekids) {
             // No children exist
-            printf("DEBUG: No children exist for process %d\n", p->pid);
+            //printf("DEBUG: No children exist for process %d\n", p->pid);
             release(&wait_lock);
 
             // Copy the number of exited children to user space
             if (copyout(p->pagetable, n_addr, (char *)&count, sizeof(int)) < 0) {
-                printf("DEBUG: Failed to copy count to user space\n");
+                //printf("DEBUG: Failed to copy count to user space\n");
                 return -1;
             }
 
             // Copy the statuses array to user space
             if (copyout(p->pagetable, statuses_addr, (char *)statuses, count * sizeof(int)) < 0) {
-                printf("DEBUG: Failed to copy statuses to user space\n");
+                //printf("DEBUG: Failed to copy statuses to user space\n");
                 return -1;
             }
 
@@ -357,7 +275,7 @@ sys_waitall(void)
 
         if (!found) {
             // No ZOMBIE children found, wait for a child to exit
-            printf("DEBUG: No ZOMBIE children found, sleeping process %d\n", p->pid);
+            //printf("DEBUG: No ZOMBIE children found, sleeping process %d\n", p->pid);
             sleep(p, &wait_lock);
         }
     }
@@ -366,13 +284,13 @@ sys_waitall(void)
 
     // Copy the number of exited children to user space
     if (copyout(p->pagetable, n_addr, (char *)&count, sizeof(int)) < 0) {
-        printf("DEBUG: Failed to copy count to user space\n");
+        //printf("DEBUG: Failed to copy count to user space\n");
         return -1;
     }
 
     // Copy the statuses array to user space
     if (copyout(p->pagetable, statuses_addr, (char *)statuses, count * sizeof(int)) < 0) {
-        printf("DEBUG: Failed to copy statuses to user space\n");
+        //printf("DEBUG: Failed to copy statuses to user space\n");
         return -1;
     }
 
